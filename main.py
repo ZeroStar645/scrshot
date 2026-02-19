@@ -32,11 +32,11 @@ class MyPlugin(Star):
      
     @status.command("all")
     async def statusall(self, event: AstrMessageEvent):
-        yield event.image_result(base64_image("http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?=http://uptime-kuma:3001/status/api")) 
+        yield event.image_result(base64_image("http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/api")) 
 
     @status.command("equake")
     async def statusequake(self, event: AstrMessageEvent):
-        yield event.image_result(base64_image("http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?=http://uptime-kuma:3001/status/eq")) 
+        yield event.image_result(base64_image("http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/eq")) 
         
     async def terminate(self):
         """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
