@@ -43,6 +43,12 @@ class MyPlugin(Star):
         url = "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/eq"
         async for res in self.handle_screenshot_send(event, url):
             yield res
+                     
+    async def statusequake(self, event: AstrMessageEvent):
+        url = "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=https://he83e9571.nyat.app:50025/status.html"
+        async for res in self.handle_screenshot_send(event, url):
+            yield res
+
 
     async def handle_screenshot_send(self, event: AstrMessageEvent, url: str):
         file_path = save_base64_to_file(url)
