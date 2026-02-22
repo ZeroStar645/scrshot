@@ -1,29 +1,42 @@
 import os
 import uuid
 import base64
-import requests
+import httpx
+import asyncio
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 
-def save_base64_to_file(api_url):
+async def async_save_base64_to_file(api_url):
+    """异步请求截图接口并保存到本地"""
     try:
-        response = requests.get(api_url, timeout=25)
-        response.raise_for_status()
-        data = response.json()
-        base64_str = data.get("data")
-        if not base64_str: return None
-        if "," in base64_str: base64_str = base64_str.split(",")[-1]
-        img_data = base64.b64decode(base64_str)
-        file_name = f"temp_{uuid.uuid4().hex}.png"
-        with open(file_name, "wb") as f:
-            f.write(img_data)
-        return os.path.abspath(file_name)
+        async with httpx.AsyncClient() as client:
+            # 增加超时时间到 30秒，因为截图服务通常较慢
+            response = await client.get(api_url, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            base64_str = data.get("data")
+            if not base64_str:
+                return None
+            
+            # 去除 base64 前缀（如有）
+            if "," in base64_str:
+                base64_str = base64_str.split(",")[-1]
+                
+            img_data = base64.b64decode(base64_str)
+            file_name = f"temp_{uuid.uuid4().hex}.png"
+            
+            # 写入本地文件
+            with open(file_name, "wb") as f:
+                f.write(img_data)
+                
+            return os.path.abspath(file_name)
     except Exception as e:
-        logger.error(f"Save image error: {e}")
+        logger.error(f"Async screenshot save error: {e}")
         return None
 
-@register("WebSiteScreenShot", "ZeroStaR", "网页截图", "1.1.1")
+@register("WebSiteScreenShot", "ZeroStaR", "网页截图并发版", "1.2.0")
 class MyPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
@@ -31,35 +44,46 @@ class MyPlugin(Star):
     @filter.command_group("status")
     def status(self):
         pass
-     
+
     @status.command("all")
     async def statusall(self, event: AstrMessageEvent):
         url = "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/api"
-        async for res in self.handle_screenshot_send(event, url):
+        # 单张图片直接调用包装好的发送逻辑
+        async for res in self.handle_multi_screenshots(event, [url]):
             yield res
 
     @status.command("equake")
     async def statusequake(self, event: AstrMessageEvent):
-        url = "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/eq"
-        async for res in self.handle_screenshot_send(event, url):
-            yield res
-                     
-    async def statusequake(self, event: AstrMessageEvent):
-        url = "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=https://he83e9571.nyat.app:50025/status.html"
-        async for res in self.handle_screenshot_send(event, url):
+        # 定义需要并发截取的 URL 列表
+        urls = [
+            "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/eq",
+            "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=https://he83e9571.nyat.app:50025/status.html"
+        ]
+        
+        # 调用并发处理逻辑
+        async for res in self.handle_multi_screenshots(event, urls):
             yield res
 
+    async def handle_multi_screenshots(self, event: AstrMessageEvent, urls: list):
+        """核心并发处理逻辑"""
+        # 并行发起所有网络请求
+        tasks = [async_save_base64_to_file(url) for url in urls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def handle_screenshot_send(self, event: AstrMessageEvent, url: str):
-        file_path = save_base64_to_file(url)
-        if file_path and os.path.exists(file_path):
-            # 先 yield 结果给框架
-            yield event.image_result(file_path)
-            # 这里的删除逻辑可能需要稍微延迟，或者确认框架发送完。
-            # 简单处理：如果报错文件被占用，说明发送中，通常 OS 会处理。
-            try:
-                os.remove(file_path)
-            except Exception as e:
-                logger.error(f"Delete file failed: {e}")
-        else:
-            yield event.plain_result("❌ 截图失败")
+        success_any = False
+        for path in results:
+            if isinstance(path, str) and os.path.exists(path):
+                # 发送图片
+                yield event.image_result(path)
+                success_any = True
+                
+                # 稍微延迟后删除，防止框架还没读取完文件就被删掉
+                await asyncio.sleep(2) 
+                try:
+                    if os.path.exists(path):
+                        os.remove(path)
+                except Exception as e:
+                    logger.error(f"Delete file failed: {e}")
+        
+        if not success_any:
+            yield event.plain_result("❌ 截图任务全部失败，请检查网络或后端接口。")
