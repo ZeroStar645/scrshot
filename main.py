@@ -47,6 +47,7 @@ class MyPlugin(Star):
 
     @status.command("all")
     async def statusall(self, event: AstrMessageEvent):
+        yield event.plain_result("处理图片中，请稍后..")
         url = "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/api"
         # 单张图片直接调用包装好的发送逻辑
         async for res in self.handle_multi_screenshots(event, [url]):
@@ -54,6 +55,7 @@ class MyPlugin(Star):
 
     @status.command("equake")
     async def statusequake(self, event: AstrMessageEvent):
+        yield event.plain_result("处理图片中，请稍后..")
         # 定义需要并发截取的 URL 列表
         urls = [
             "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/eq",
