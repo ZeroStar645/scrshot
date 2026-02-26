@@ -58,8 +58,7 @@ class MyPlugin(Star):
         yield event.plain_result("处理图片中，请稍后..")
         # 定义需要并发截取的 URL 列表
         urls = [
-            "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/eq",
-            "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=https://he83e9571.nyat.app:50025/status.html"
+            "http://napcat:6099/plugin/napcat-plugin-puppeteer/api/screenshot?url=http://uptime-kuma:3001/status/eq"
         ]
         
         # 调用并发处理逻辑
